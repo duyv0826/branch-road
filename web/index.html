@@ -40,6 +40,14 @@
     color: #33414d; }
   #clock { font-size: 12px; letter-spacing: .2em; color: #4d5d6b; margin-bottom: 6px; }
   #clock.warn { color: #a8452f; }
+  #scene { width: 100%; height: 186px; overflow: hidden; position: relative;
+    border: 1px solid rgba(127,212,201,.14); margin-bottom: 4px; }
+  #scene img { width: 100%; height: 100%; object-fit: cover; opacity: 0;
+    transition: opacity 1.4s ease; filter: saturate(0.85) brightness(0.92); }
+  #scene img.on { opacity: 1; }
+  #scene::after { content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(5,8,14,.15), transparent 40%, rgba(5,8,14,.55));
+    pointer-events: none; }
   #loading { color: var(--dim); font-size: 14px; margin-top: 18px; display: none; }
   #endtitle { display: none; font-size: 30px; color: var(--warm); margin: 8px 0 18px;
     letter-spacing: .15em; }
@@ -64,6 +72,7 @@
   <div id="title">岔 路</div>
   <div id="sub">末班地铁 · 一部不属于你的手机 · 23:47 发出的一条消息</div>
   <div id="clock">23:12 · 终点站 8 站</div>
+  <div id="scene"><img id="sceneimg" alt=""></div>
   <div id="endtitle"></div>
   <div id="narr"></div>
   <div id="loading">车厢在晃……</div>
@@ -172,6 +181,26 @@ const HINTS = [
   "23:47 快到了……",
 ];
 
+const SCENES = ["scenes/b1.png","scenes/b2.png","scenes/b3.png","scenes/b4.png",
+  "scenes/b5.png","scenes/b6.png","scenes/b7.png","scenes/b8.png"];
+let sceneEl = null;
+function setScene(beat) {
+  try {
+    const idx = Math.min(Math.max(beat, 1), 8) - 1;
+    const img = document.getElementById("sceneimg");
+    if (!img) return;
+    if (!sceneEl) { const s = new Image(); s.src = SCENES[idx]; return; }
+    img.classList.remove("on");
+    setTimeout(() => { img.src = SCENES[idx]; img.classList.add("on"); }, 350);
+  } catch (e) {}
+}
+function preloadScenes() {
+  const first = new Image(); first.src = SCENES[0]; sceneEl = first;
+  first.onload = () => { const img = document.getElementById("sceneimg");
+    if (img) { img.src = SCENES[0]; img.classList.add("on"); } };
+  SCENES.slice(1).forEach(src => { const i = new Image(); i.src = src; });
+}
+
 function typewriter(el, text) {
   clearInterval(typeTimer);
   el.innerHTML = "";
@@ -230,6 +259,7 @@ async function beatTurn(choiceText, free) {
     $("clock").textContent = `23:${String(mins).padStart(2, "0")} · 终点站 ${8 - beat} 站`;
     if (beat >= 6) $("clock").classList.add("warn");
     $("freein").placeholder = HINTS[Math.min(beat, HINTS.length - 1)];
+    setScene(beat);
     if (obj.ending_title || isEnd) {
       ended = true;
       document.getElementById("stage").classList.add("ending");
@@ -296,6 +326,7 @@ $("btn").onclick = () => location.reload();
 $("altbtn").onclick = showAlt;
 
 // boot
+preloadScenes();
 show($("choices"), false);
 typewriter($("narr"), OPENING);
 show($("free"), true); show($("tools"), true);
