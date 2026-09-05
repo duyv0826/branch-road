@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>岔路 · 竖切 0.1</title>
+<style>
+  :root { --cyan: #7fd4c9; --warm: #ffe8c2; --ink: #0a0c12; --dim: #5b6b7a; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; background: var(--ink); color: #c8d4dc;
+    font: 16px/1.9 "Microsoft YaHei", "PingFang SC", sans-serif; overflow: hidden; }
+  #bg { position: fixed; inset: 0; background: url("bg.png") center/cover no-repeat;
+    filter: brightness(0.55) saturate(0.8); }
+  #veil { position: fixed; inset: 0; background: linear-gradient(180deg, rgba(5,8,14,.25), rgba(5,8,14,.88)); }
+  #stage { position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-end; padding: 4vh 6vw 5vh; }
+  #panel { width: min(860px, 92vw); }
+  #meta { font-size: 12px; letter-spacing: .35em; color: var(--dim); text-transform: uppercase; margin-bottom: 10px; }
+  #title { font-size: 42px; color: var(--cyan); letter-spacing: .12em; margin-bottom: 6px; font-weight: 600; }
+  #sub { color: #8fa3b0; font-size: 15px; margin-bottom: 34px; }
+  #narr { min-height: 130px; font-size: 17px; line-height: 2.05; color: #d6dee5;
+    text-shadow: 0 1px 8px rgba(0,0,0,.9); white-space: pre-wrap; }
+  #narr .cursor { color: var(--cyan); animation: blink 0.9s infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  #choices { margin-top: 26px; display: none; flex-direction: column; gap: 10px; }
+  .opt { border: 1px solid rgba(127,212,201,.35); padding: 12px 18px; cursor: pointer;
+    color: #cfe3df; background: rgba(10,14,20,.55); transition: all .18s; font-size: 15.5px; }
+  .opt:hover { border-color: var(--cyan); color: #fff; background: rgba(127,212,201,.08);
+    transform: translateX(4px); }
+  .opt .k { color: var(--dim); margin-right: 12px; font-size: 13px; }
+  #free { margin-top: 12px; display: none; gap: 8px; }
+  #freein { flex: 1; background: rgba(10,14,20,.55); border: 1px solid #2a3540; color: #c8d4dc;
+    padding: 10px 14px; font: inherit; font-size: 14.5px; outline: none; }
+  #freein:focus { border-color: rgba(127,212,201,.5); }
+  #freego, #reroll, #restart, #btn { background: none; border: 1px solid #2a3540; color: #8fa3b0;
+    padding: 10px 16px; cursor: pointer; font: inherit; font-size: 13.5px; }
+  #freego:hover, #reroll:hover, #btn:hover { border-color: var(--cyan); color: var(--cyan); }
+  #tools { margin-top: 14px; display: none; gap: 14px; align-items: center; }
+  #beat { position: fixed; top: 18px; right: 24px; font-size: 11px; letter-spacing: .3em;
+    color: #33414d; }
+  #clock { font-size: 12px; letter-spacing: .2em; color: #4d5d6b; margin-bottom: 6px; }
+  #clock.warn { color: #a8452f; }
+  #loading { color: var(--dim); font-size: 14px; margin-top: 18px; display: none; }
+  #endtitle { display: none; font-size: 30px; color: var(--warm); margin: 8px 0 18px;
+    letter-spacing: .15em; }
+  #stage.ending #meta, #stage.ending #sub { opacity: .25; transition: opacity 1.6s; }
+  #stage.ending #title { opacity: .5; transition: opacity 2.4s; }
+  #stage.ending #clock { opacity: 1; color: var(--warm); }
+  #endtitle.show { animation: spread 2.6s ease both; }
+  @keyframes spread { from { letter-spacing: .15em; opacity: 0; } to { letter-spacing: .55em; opacity: 1; } }
+  @keyframes slidein { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+  .opt { animation: slidein .45s both; }
+  #alt { display: none; margin-top: 22px; border-left: 2px solid rgba(255,232,194,.4);
+    padding: 8px 0 8px 18px; color: #b9c4b9; font-size: 15px; line-height: 1.9; white-space: pre-wrap; }
+  #althead { display: none; margin-top: 22px; }
+  #althead button { background: none; border: none; color: var(--warm); cursor: pointer;
+    font: inherit; font-size: 14.5px; border-bottom: 1px dashed rgba(255,232,194,.5); padding: 2px 0; }
+</style>
+</head>
+<body>
+<div id="bg"></div><div id="veil"></div>
+<div id="stage"><div id="panel">
+  <div id="meta">BRANCH ROAD · VERTICAL SLICE 0.1</div>
+  <div id="title">岔 路</div>
+  <div id="sub">末班地铁 · 一部不属于你的手机 · 23:47 发出的一条消息</div>
+  <div id="clock">23:12 · 终点站 8 站</div>
+  <div id="endtitle"></div>
+  <div id="narr"></div>
+  <div id="loading">车厢在晃……</div>
+  <div id="choices"></div>
+  <div id="free"><input id="freein" placeholder="或者，做点别的……（回车）"><button id="freego">行动</button></div>
+  <div id="althead"><button id="altbtn">↺ 看看：如果你做了另一个选择</button></div>
+  <div id="alt"></div>
+  <div id="tools">
+    <button id="reroll">↻ 换一批选项</button>
+    <button id="btn" style="display:none">重新上车</button>
+    <span id="beat" style="position:static;margin-left:auto"></span>
+  </div>
+</div></div>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const SYS = `你是文字冒险游戏《岔路》的叙述者。风格：克制、冷静、细节真实，第二人称"你"，不堆形容词，中文。
+
+设定骨架（只可暗示，不可直白说破）：
+- 末班地铁。你在车厢座位上捡到一部手机。屏幕亮着，主人备注名是"林晚"。
+- 手机里有一条定时 23:47 发出的消息草稿，收件人备注是"妈"。内容你还没看完。
+- 23:47 也是这班地铁的终点站。列车现在正在行驶，车门不会中途打开。
+- 真相（随剧情渐次暗示）：林晚把手机留在车厢是故意的。她在找一个愿意替她读完草稿的人。车厢里某些细节（报站广播的杂音、车窗倒影里多出来的一道轮廓、车轮节奏的异常）在暗示：这趟车可能已经不只是地铁。
+
+规则：
+- 每回合输出 150-220 字的第二人称叙事推进，然后给出 3 个风格迥异、都合理的行动选项（每个不超过 22 字）。
+- 选项不要询问类（"查看手机"之类要在叙事里自然发生），要是"行动"。
+- 每 2-3 回合埋一个上述真相的线索，永远不说破。
+- 玩家如果给了自由行动，优先顺着他的意图走。
+- 到第 8 回合必须收束：给 240-320 字的结局叙事 + 一个 4-8 字的结局标题。
+- 只输出严格 JSON，不要 markdown 代码块：
+{"narrative":"...","options":["...","...","..."]}
+结局回合输出：{"narrative":"...","ending_title":"..."}`;
+
+const OPENING = `23:12。末班地铁，车厢里只剩你一个人。\n对面的座位上有一部手机，屏幕亮着，光在晃动的车厢里一跳一跳。你没有听见任何消息提示音——它就那样自己亮了起来。\n你拿起来。锁屏壁纸是一片海。备注名"林晚"的消息界面停在一条没有发出的草稿上：\n发送时间：23:47。收件人：妈。\n车厢广播响了，电流声里你听见报站——下一站，还有八站。\n可这趟线，明明只剩终点站了。`;
+
+let beat = 0, busy = false, history = [], path = [], ended = false;
+let typeTimer = null;
+
+// ---------- 声音：全部 Web Audio 现场合成，零资产 ----------
+let AC = null, ambOn = false, clackTimer = null;
+function audioInit() {
+  if (AC) return;
+  try {
+    AC = new (window.AudioContext || window.webkitAudioContext)();
+    startAmbience();
+  } catch (e) { /* 无声环境不阻断游戏 */ }
+}
+function startAmbience() {
+  if (ambOn) return; ambOn = true;
+  // 行车低鸣: 回路brown噪声过低通
+  const len = AC.sampleRate * 4;
+  const buf = AC.createBuffer(1, len, AC.sampleRate);
+  const d = buf.getChannelData(0);
+  let v = 0;
+  for (let i = 0; i < len; i++) { v = v * 0.985 + (Math.random() * 2 - 1) * 0.015; d[i] = v * 7; }
+  const src = AC.createBufferSource(); src.buffer = buf; src.loop = true;
+  const lp = AC.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 220;
+  const g = AC.createGain(); g.gain.value = 0.055;
+  src.connect(lp); lp.connect(g); g.connect(AC.destination); src.start();
+  // 车底电机哼鸣
+  const o = AC.createOscillator(); o.frequency.value = 55;
+  const og = AC.createGain(); og.gain.value = 0.018;
+  o.connect(og); og.connect(AC.destination); o.start();
+  clack();
+}
+function clack() { // 轨缝"咣-当"
+  if (!AC) return;
+  const t = AC.currentTime + 0.05;
+  [0, 0.16].forEach(dt => {
+    const o = AC.createOscillator(); o.type = "triangle";
+    o.frequency.value = 135 + Math.random() * 45;
+    const g = AC.createGain();
+    g.gain.setValueAtTime(0.045, t + dt);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dt + 0.09);
+    o.connect(g); g.connect(AC.destination); o.start(t + dt); o.stop(t + dt + 0.1);
+  });
+  clackTimer = setTimeout(clack, 1050 + Math.random() * 380);
+}
+function tick() { // 选项浮现
+  if (!AC) return;
+  const o = AC.createOscillator(); o.frequency.value = 1750;
+  const g = AC.createGain();
+  g.gain.setValueAtTime(0.022, AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.07);
+  o.connect(g); g.connect(AC.destination); o.start(); o.stop(AC.currentTime + 0.08);
+}
+function boom() { // 结局低频爆点
+  if (!AC) return;
+  const o = AC.createOscillator(); o.frequency.value = 46;
+  const g = AC.createGain();
+  g.gain.setValueAtTime(0.0001, AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.22, AC.currentTime + 0.4);
+  g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 3.2);
+  o.connect(g); g.connect(AC.destination); o.start(); o.stop(AC.currentTime + 3.3);
+}
+
+const HINTS = [
+  "按下回车，拿起那部手机……",
+  "浏览，或者留给她一点体面……",
+  "车窗的倒影里，好像多了点什么……",
+  "报站的杂音不太对劲……",
+  "笔尖比记忆可靠……",
+  "车轮的节奏乱了吗？",
+  "只剩几站了……",
+  "23:47 快到了……",
+];
+
+function typewriter(el, text) {
+  clearInterval(typeTimer);
+  el.innerHTML = "";
+  let i = 0;
+  typeTimer = setInterval(() => {
+    el.textContent = text.slice(0, i);
+    i += 2;
+    if (i >= text.length + 1) { clearInterval(typeTimer); el.textContent = text; }
+  }, 24);
+}
+function show(el, on) { el.style.display = on ? "flex" : "none"; }
+function busyState(on, msg) { $("loading").style.display = on ? "block" : "none"; if (msg) $("loading").textContent = msg; }
+
+async function chat(userContent, isEnding) {
+  history.push({ role: "user", content: userContent });
+  const msgs = [{ role: "system", content: SYS }, ...history.slice(-9)];
+  let j = null, lastErr = null;
+  for (let i = 0; i < 2; i++) {          // 瞬时抖动自动重试一次
+    try {
+      const r = await fetch("/api/chat", { method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: msgs }) });
+      j = await r.json();
+      if (j.error) throw new Error(j.error);
+      break;
+    } catch (e) { lastErr = e; j = null; await new Promise(s => setTimeout(s, 900)); }
+  }
+  if (!j || !j.text) throw (lastErr || new Error("对话中断"));
+  let raw = (j.text || "").trim().replace(/```json|```/g, "").trim();
+  let obj;
+  try { obj = JSON.parse(raw); }
+  catch {
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error("格式未解析");
+    obj = JSON.parse(m[0]);
+  }
+  history.push({ role: "assistant", content: raw });
+  return obj;
+}
+
+async function beatTurn(choiceText, free) {
+  if (busy || ended) return;
+  audioInit();
+  busy = true;
+  show($("choices"), false); show($("free"), false); show($("tools"), false);
+  $("alt").style.display = "none"; $("althead").style.display = "none";
+  busyState(true, free ? "车灯闪了一下……" : "车轮在钢轨接缝上叩着……");
+  path.push(choiceText);
+  const isEnd = beat >= 7;
+  try {
+    const obj = await chat(choiceText, isEnd);
+    beat++;
+    busyState(false);
+    // 车厢时钟: 23:12 → 23:47, 8 回合走完 35 分钟
+    const mins = 12 + Math.round((beat / 8) * 35);
+    $("clock").textContent = `23:${String(mins).padStart(2, "0")} · 终点站 ${8 - beat} 站`;
+    if (beat >= 6) $("clock").classList.add("warn");
+    $("freein").placeholder = HINTS[Math.min(beat, HINTS.length - 1)];
+    if (obj.ending_title || isEnd) {
+      ended = true;
+      document.getElementById("stage").classList.add("ending");
+      $("clock").textContent = "23:47 · 终点站";
+      boom();
+      $("endtitle").style.display = "block";
+      $("endtitle").classList.add("show");
+      $("endtitle").textContent = "【" + (obj.ending_title || "终点站") + "】";
+      setTimeout(() => typewriter($("narr"), obj.narrative), 900);
+      show($("althead"), true);
+      show($("tools"), true); $("reroll").style.display = "none"; $("btn").style.display = "inline";
+      console.log("[岔路] END", JSON.stringify({ path, beats: beat }));
+    } else {
+      typewriter($("narr"), obj.narrative);
+      const opts = (obj.options || []).slice(0, 3);
+      $("choices").innerHTML = "";
+      opts.forEach((o, i) => {
+        const d = document.createElement("div");
+        d.className = "opt";
+        d.style.animationDelay = `${i * 0.13}s`;
+        d.innerHTML = `<span class="k">${i + 1}</span>${o}`;
+        d.onclick = () => { audioInit(); beatTurn(o, false); };
+        $("choices").appendChild(d);
+      });
+      tick();
+      show($("choices"), true); show($("free"), true); show($("tools"), true);
+      $("beat").textContent = `${beat} / 8`;
+      console.log("[岔路] beat", beat, JSON.stringify({ choice: choiceText, free }));
+    }
+  } catch (e) {
+    busyState(false);
+    typewriter($("narr"), "车灯熄了一下。（叙事没有接上——点「换一批选项」再试。）");
+    show($("choices"), true); show($("tools"), true);
+    console.log("[岔路] ERROR", String(e));
+  }
+  busy = false;
+}
+
+async function showAlt() {
+  $("alt").style.display = "block";
+  $("alt").textContent = "……";
+  try {
+    const obj = await chat("玩家想知道：如果他在第一个关键选择处走了另一条路，故事会怎样结束。用 160-220 字写那条路的结局，最后给那个结局一个 4-8 字的标题。JSON：{\"narrative\":\"...\",\"ending_title\":\"...\"}", true);
+    $("alt").textContent = `【${obj.ending_title || "另一条路"}】\n` + obj.narrative;
+    console.log("[岔路] ALT-VIEWED", JSON.stringify(path.slice(0, 2)));
+  } catch (e) { $("alt").textContent = "（岔路隐没在黑暗里。）"; }
+}
+
+function startGame() {
+  show($("tools"), false);
+  beatTurn(OPENING, true);
+}
+
+$("freego").onclick = () => {
+  audioInit();
+  const v = $("freein").value.trim() || (beat === 0 ? "拿起那部手机" : "");
+  if (!v) return;
+  $("freein").value = "";
+  beatTurn(v, true);
+};
+$("freein").addEventListener("keydown", e => { audioInit(); if (e.key === "Enter") $("freego").onclick(); });
+$("reroll").onclick = () => { audioInit(); path.pop(); history.pop(); history.pop(); beat--; beatTurn("（凝视车门，重新权衡）", true); };
+$("btn").onclick = () => location.reload();
+$("altbtn").onclick = showAlt;
+
+// boot
+show($("choices"), false);
+typewriter($("narr"), OPENING);
+show($("free"), true); show($("tools"), true);
+$("freein").placeholder = "按下回车，拿起那部手机……";
+console.log("[岔路] 竖切 0.1 — 验证命题：你会不会想知道另一种选法");
+</script>
+</body>
+</html>
