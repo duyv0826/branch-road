@@ -13,6 +13,8 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 KEY = os.environ.get("ZHIPU_API_KEY")
 MODEL = os.environ.get("BR_MODEL", "glm-4-flash")
 API = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+TTS_VOICE = os.environ.get("BR_VOICE", "zh-CN-XiaoxiaoNeural")
+TTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tts_cache")
 
 MIME = {".html": "text/html; charset=utf-8", ".js": "text/javascript",
         ".css": "text/css", ".png": "image/png", ".jpg": "image/jpeg",
@@ -30,6 +32,32 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _tts(self):
+        """edge-tts 合成林晚的语音（磁盘缓存, 同文本不重复请求微软）。"""
+        import asyncio
+        n = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(n)
+        try:
+            req = json.loads(raw.decode("utf-8"))
+        except UnicodeDecodeError:
+            req = json.loads(raw.decode("gbk", "replace"))  # 控制台 curl 兜底
+        text = str(req.get("text", ""))[:600]
+        import hashlib
+        cache = os.path.join(TTS_DIR, hashlib.md5((TTS_VOICE + text).encode()).hexdigest() + ".mp3")
+        os.makedirs(TTS_DIR, exist_ok=True)
+        if not os.path.isfile(cache):
+            try:
+                import edge_tts
+                async def run():
+                    com = edge_tts.Communicate(text, TTS_VOICE, rate="-6%")
+                    await com.save(cache)
+                asyncio.run(run())
+            except Exception as e:
+                self._send(502, json.dumps({"error": f"tts: {e}"}).encode(), "application/json")
+                return
+        with open(cache, "rb") as f:
+            self._send(200, f.read(), "audio/mpeg")
+
     def do_GET(self):
         path = self.path.split("?")[0]
         if path == "/":
@@ -43,6 +71,9 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, f.read(), MIME.get(ext, "application/octet-stream"))
 
     def do_POST(self):
+        if self.path == "/api/tts":
+            self._tts()
+            return
         if self.path != "/api/chat":
             self._send(404, b"not found", "text/plain")
             return
