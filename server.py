@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 KEY = os.environ.get("ZHIPU_API_KEY")
 MODEL = os.environ.get("BR_MODEL", "glm-4-flash")
+END_MODEL = os.environ.get("BR_END_MODEL", "glm-4.5-air")  # 终局信单独用强模型
 API = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
 TTS_VOICE = os.environ.get("BR_VOICE", "zh-CN-XiaoxiaoNeural")
 TTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tts_cache")
@@ -87,7 +88,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(500, json.dumps({"error": "ZHIPU_API_KEY 未设置"}).encode(),
                        "application/json")
             return
-        body = json.dumps({"model": MODEL, "messages": req["messages"],
+        model = END_MODEL if req.get("ending") else MODEL
+        body = json.dumps({"model": model, "messages": req["messages"],
                            "temperature": 0.9, "max_tokens": 1200}).encode()
         rq = urllib.request.Request(API, data=body, headers={
             "Authorization": f"Bearer {KEY}", "Content-Type": "application/json"})

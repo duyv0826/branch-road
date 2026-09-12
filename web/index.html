@@ -240,7 +240,7 @@ async function chat(userContent, isEnding) {
     try {
       const r = await fetch("/api/chat", { method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: msgs }) });
+        body: JSON.stringify({ messages: msgs, ending: !!isEnding }) });
       j = await r.json();
       if (j.error) throw new Error(j.error);
       break;
@@ -269,7 +269,7 @@ async function beatTurn(choiceText, free) {
   path.push(choiceText);
   const isEnd = beat >= 7;
   try {
-    const obj = await chat(choiceText + (isEnd ? "\n（最后回合：JSON 需多一个字段 message——林晚草稿的全文，60-120 字第一人称写给妈妈，克制、不煽情、留白。字段顺序：message, narrative, ending_title）" : ""), isEnd);
+    const obj = await chat(choiceText + (isEnd ? "\n（最后回合：JSON 需多一个字段 message——林晚没发出去的草稿，60-120 字，写给妈妈。写一张真的会躺在草稿箱里的便条：用具体的人、物、场景（呼应本局剧情里出现过的东西），不出现\"支持\"\"骄傲\"\"努力\"\"我爱你\"这类词，不解释不道歉，最后一句说一半就停。字段顺序：message, narrative, ending_title）" : ""), isEnd);
     beat++;
     busyState(false);
     // 车厢时钟: 23:12 → 23:47, 8 回合走完 35 分钟
