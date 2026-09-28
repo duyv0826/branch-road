@@ -47,15 +47,23 @@ class Handler(BaseHTTPRequestHandler):
         cache = os.path.join(TTS_DIR, hashlib.md5((TTS_VOICE + text).encode()).hexdigest() + ".mp3")
         os.makedirs(TTS_DIR, exist_ok=True)
         if not os.path.isfile(cache):
+            import threading
+            tmp = f"{cache}.{os.getpid()}.{threading.get_ident()}.part"
             try:
                 import edge_tts
                 async def run():
                     com = edge_tts.Communicate(text, TTS_VOICE, rate="-6%")
-                    await com.save(cache)
+                    await com.save(tmp)  # 先写 .part: 半截流不能落到缓存路径上
                 asyncio.run(run())
+                os.replace(tmp, cache)  # 原子改名, 并发同文本各写各的 .part 不会交错污染
             except Exception as e:
-                self._send(502, json.dumps({"error": f"tts: {e}"}).encode(), "application/json")
-                return
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+                if not os.path.isfile(cache):  # 改名失败但对手线程已产出缓存 → 照常回音频
+                    self._send(502, json.dumps({"error": f"tts: {e}"}).encode(), "application/json")
+                    return
         with open(cache, "rb") as f:
             self._send(200, f.read(), "audio/mpeg")
 
