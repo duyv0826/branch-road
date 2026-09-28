@@ -55,6 +55,8 @@ class Handler(BaseHTTPRequestHandler):
                     com = edge_tts.Communicate(text, TTS_VOICE, rate="-6%")
                     await com.save(tmp)  # 先写 .part: 半截流不能落到缓存路径上
                 asyncio.run(run())
+                if os.path.getsize(tmp) == 0:  # empty stream (e.g. blank text) must not poison the cache
+                    raise RuntimeError("tts: empty stream")
                 os.replace(tmp, cache)  # 原子改名, 并发同文本各写各的 .part 不会交错污染
             except Exception as e:
                 try:
