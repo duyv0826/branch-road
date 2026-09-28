@@ -1,3 +1,4 @@
 server.log
 web/bg.png
 tts_cache/
+__pycache__/
