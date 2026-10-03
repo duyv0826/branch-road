@@ -298,6 +298,11 @@ async function beatTurn(choiceText, free) {
         $("msgtext").textContent = msg;
         $("msgcard").style.display = "block";
         let voiceStarted = false;
+        const voiceFail = () => {  // 失败必须把闸抬起, 否则按钮显示"再试一次"却点不动
+          voiceStarted = false;
+          $("msgvoice").textContent = "▶（声音没能响起，再点一次）";
+          $("msgvoice").classList.remove("off");
+        };
         $("msgvoice").onclick = () => {
           if (voiceStarted) return;
           voiceStarted = true;
@@ -306,8 +311,9 @@ async function beatTurn(choiceText, free) {
           fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text: msg }) })
             .then(r => { if (!r.ok) throw 0; return r.blob(); })
-            .then(b => { au.src = URL.createObjectURL(b); return au.play(); })
-            .catch(() => { $("msgvoice").textContent = "▶（声音没能响起）"; $("msgvoice").classList.remove("off"); });
+            .then(b => { if (!b.size) throw 0; au.src = URL.createObjectURL(b); return au.play(); })
+            .catch(voiceFail);
+          au.onerror = voiceFail;  // 0字节/坏流不会走 fetch 的 catch, 只在解码时静默失败
         };
         setTimeout(showEnding, Math.min(6000, msg.length * 80 + 1600));
       } else {

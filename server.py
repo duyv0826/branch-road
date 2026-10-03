@@ -73,7 +73,10 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         if path == "/":
             path = "/index.html"
-        fp = os.path.join(ROOT, path.lstrip("/"))
+        fp = os.path.realpath(os.path.join(ROOT, path.lstrip("/")))
+        if fp != ROOT and not fp.startswith(ROOT + os.sep):  # 原始请求可带 /../, 必须关死在 web/ 里
+            self._send(404, b"not found", "text/plain")
+            return
         if not os.path.isfile(fp):
             self._send(404, b"not found", "text/plain")
             return
