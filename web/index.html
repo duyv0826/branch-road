@@ -103,6 +103,7 @@
     <span id="beat" style="position:static;margin-left:auto"></span>
   </div>
 </div></div>
+<script src="offline.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -232,19 +233,35 @@ function typewriter(el, text) {
 function show(el, on) { el.style.display = on ? "flex" : "none"; }
 function busyState(on, msg) { $("loading").style.display = on ? "block" : "none"; if (msg) $("loading").textContent = msg; }
 
+let OFFLINE_MODE = false;
+function offlineBadge() {
+  if (OFFLINE_MODE) return;
+  OFFLINE_MODE = true;
+  try {
+    $("meta").textContent = "BRANCH ROAD · 离线回放（预设叙事，非实时生成）";
+    $("sub").textContent = "末班地铁 · 离线演示：自由输入也走同一条预设线";
+  } catch (e) {}
+}
 async function chat(userContent, isEnding) {
   history.push({ role: "user", content: userContent });
   const msgs = [{ role: "system", content: SYS }, ...history.slice(-9)];
   let j = null, lastErr = null;
-  for (let i = 0; i < 2; i++) {          // 瞬时抖动自动重试一次
-    try {
-      const r = await fetch("/api/chat", { method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: msgs, ending: !!isEnding }) });
-      j = await r.json();
-      if (j.error) throw new Error(j.error);
-      break;
-    } catch (e) { lastErr = e; j = null; await new Promise(s => setTimeout(s, 900)); }
+  if (!OFFLINE_MODE) {
+    for (let i = 0; i < 2; i++) {          // 瞬时抖动自动重试一次
+      try {
+        const r = await fetch("/api/chat", { method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: msgs, ending: !!isEnding }) });
+        j = await r.json();
+        if (j.error) throw new Error(j.error);
+        break;
+      } catch (e) { lastErr = e; j = null; await new Promise(s => setTimeout(s, 900)); }
+    }
+  }
+  if (!j) {                                // 后端不可达 → 走预录回放
+    const k = (beat >= 8) ? "alt" : String(beat);
+    const canned = (window.BR_OFFLINE || {})[k];
+    if (canned) { offlineBadge(); j = { text: JSON.stringify(canned) }; }
   }
   if (!j || !j.text) throw (lastErr || new Error("对话中断"));
   let raw = (j.text || "").trim().replace(/```json|```/g, "").trim();
@@ -304,6 +321,7 @@ async function beatTurn(choiceText, free) {
           $("msgvoice").classList.remove("off");
         };
         $("msgvoice").onclick = () => {
+          if (OFFLINE_MODE) { $("msgvoice").textContent = "▶ 离线回放无配音"; $("msgvoice").style.opacity = "0.5"; return; }
           if (voiceStarted) return;
           voiceStarted = true;
           $("msgvoice").textContent = "▶ 播放中……"; $("msgvoice").classList.add("off");
